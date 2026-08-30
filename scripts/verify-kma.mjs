@@ -15,6 +15,12 @@
 
 import { readFileSync } from 'node:fs';
 
+// Node의 내장 fetch는 HTTPS_PROXY를 기본적으로 읽지 않는다.
+// 프록시를 거쳐야 하는 환경(Claude Code 클라우드 세션 등)에서는 아래 두 변수가 필요하다.
+//   NODE_USE_ENV_PROXY=1
+//   NODE_EXTRA_CA_CERTS=<프록시 CA 번들>
+// 일반 로컬 환경에서는 둘 다 없어도 그냥 동작한다.
+
 const BASE =
   process.env.KMA_BASE ??
   'https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0';
@@ -75,7 +81,17 @@ async function call(op, base) {
   console.log(`\n▶ ${op}  base_date=${base.date} base_time=${base.time}`);
   console.log(`  ${url.replace(KEY, '***')}`);
 
-  const res = await fetch(url);
+  let res;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(25_000) });
+      break;
+    } catch (e) {
+      console.log(`  · 연결 실패 (${attempt}/3): ${e.cause?.code ?? e.message}`);
+      if (attempt === 3) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+  }
   console.log(`  HTTP ${res.status}`);
 
   const text = await res.text();

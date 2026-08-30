@@ -104,6 +104,13 @@ export const SCENARIOS: Scenario[] = [
     ride: ride(0, 20),
   },
   {
+    id: 'nosky',
+    name: '하늘상태 없음',
+    // 초단기예보 미연동 상태. 모르는 것을 '맑음'이라 지어내지 않는다.
+    weather: snap(6.8, 337.5, { sky: null }),
+    ride: ride(0, 20),
+  },
+  {
     id: 'stale',
     name: '오래된 데이터',
     weather: snap(6.8, 337.5, { observedAt: Date.now() - 34 * 60_000 }),

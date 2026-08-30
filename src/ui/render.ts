@@ -18,12 +18,17 @@ const PRECIP_TEXT: Record<Exclude<Precip, 'none'>, string> = {
   shower: '소나기',
 };
 
-/** 강수가 있으면 하늘상태보다 우선한다. */
-function weatherText(sky: Sky, precip: Precip): string {
-  return precip === 'none' ? SKY_TEXT[sky] : PRECIP_TEXT[precip];
+/**
+ * 강수가 있으면 하늘상태보다 우선한다.
+ * 하늘상태를 모르고(초단기예보 미연동) 강수도 없으면 아무 말도 하지 않는다.
+ * 모르는 것을 "맑음"이라고 지어내면 화면이 조용히 거짓말을 하게 된다.
+ */
+function weatherText(sky: Sky | null, precip: Precip): string {
+  if (precip !== 'none') return PRECIP_TEXT[precip];
+  return sky === null ? '' : SKY_TEXT[sky];
 }
 
-function weatherIcon(sky: Sky, precip: Precip): string {
+function weatherIcon(sky: Sky | null, precip: Precip): string {
   if (precip !== 'none') {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
       <path d="M7 15a4 4 0 0 1 .6-8A5.5 5.5 0 0 1 18 8.5a3.5 3.5 0 0 1-.5 6.5"/>
@@ -35,6 +40,8 @@ function weatherIcon(sky: Sky, precip: Precip): string {
       <path d="M7 18a4.5 4.5 0 0 1 .6-9A5.5 5.5 0 0 1 18 10.5a3.8 3.8 0 0 1-.4 7.5z"/>
     </svg>`;
   }
+  // 하늘상태를 모르면 온도만 보여준다 (아이콘 없음)
+  if (sky === null) return '';
   if (sky === 'partly') {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
       <circle cx="9" cy="8" r="3.2"/>
@@ -92,8 +99,13 @@ function renderDisplay(d: Display): void {
   const sameAsTemp = feels === Math.round(d.temperature);
   $('feels-wrap').hidden = sameAsTemp;
   if (!sameAsTemp) $('feels').textContent = `${feels}°`;
-  $('sky-text').textContent = weatherText(d.sky, d.precip);
-  $('sky-icon').innerHTML = weatherIcon(d.sky, d.precip);
+  const text = weatherText(d.sky, d.precip);
+  const icon = weatherIcon(d.sky, d.precip);
+  $('sky-text').textContent = text;
+  $('sky-text').hidden = text === '';
+  $('sky-sep').hidden = text === '';
+  $('sky-icon').innerHTML = icon;
+  $('sky-icon').hidden = icon === '';
   $('kmh').textContent = `${Math.round(d.speedKmh)} km/h`;
 
   // GPS 노이즈로 화살표가 미세하게 떠는 것을 막기 위해 5° 단위로 반올림

@@ -18,6 +18,7 @@ const SHOTS = [
   'stopped',
   'rain',
   'night',
+  'nosky',
   'stale',
 ];
 

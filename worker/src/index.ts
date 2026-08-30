@@ -104,7 +104,7 @@ async function load(
     windFrom: ncst.VEC,
     temperature: ncst.T1H,
     humidity: ncst.REH,
-    sky: fcst ?? 'clear',
+    sky: fcst, // 활용신청이 안 됐거나 실패하면 null
     precip: mapPrecip(ncst.PTY),
     observedAt: ncst.observedAt,
   };
@@ -184,6 +184,15 @@ async function kmaItems(url: string): Promise<KmaItem[]> {
       body?: { items?: { item?: KmaItem[] } };
     };
   };
+
+  // API 허브는 오류를 두 가지 형태로 돌려준다.
+  //  1. { response: { header: { resultCode, resultMsg } } }        — 서비스 내부 오류
+  //  2. { result: { status, message } }                             — 게이트웨이 오류
+  //     (예: 403 "활용신청이 필요한 API 입니다")
+  const gate = (body as { result?: { status?: number; message?: string } }).result;
+  if (gate?.status && gate.status >= 400) {
+    throw new Error(`KMA ${gate.status}: ${gate.message}`);
+  }
 
   const header = body.response?.header;
   if (header?.resultCode !== '00') {

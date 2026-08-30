@@ -25,7 +25,8 @@ export type WeatherSnapshot = {
   temperature: number;
   /** % (REH) — 체감온도 계산에 쓴다 */
   humidity: number;
-  sky: Sky;
+  /** 하늘상태. 초단기예보를 못 받으면 null (모른다는 뜻). */
+  sky: Sky | null;
   precip: Precip;
   /** 관측 시각 (epoch ms). 오래된 값 경고에 쓴다. */
   observedAt: number;
@@ -54,7 +55,7 @@ export type Display = {
   bearingKo: string;
   temperature: number;
   feelsLike: number;
-  sky: Sky;
+  sky: Sky | null;
   precip: Precip;
   theme: Theme;
   /** km/h */
