@@ -13,7 +13,7 @@
 | S0 | 스캐폴딩 | ✅ |
 | S3 | 계산 로직 + 단위 테스트 (37개) | ✅ |
 | S4 | UI (목 데이터로 검증) | ✅ |
-| S2 | 서버리스 프록시 | 코드 작성 완료, **실 API 미검증** |
+| S2 | 서버리스 프록시 (API 허브 기준) | 코드 작성 완료, **실 API 미검증** |
 | S1 | 지도 회전·GPS heading 스파이크 | ⏳ 실기기 필요 |
 | S5 | PWA 셸 (manifest / SW) | ⏳ |
 | S6 | 필드 테스트 | ⏳ |
@@ -36,12 +36,22 @@ npm run dev             # → http://localhost:5173
 
 ### 1. 기상청 API 키
 
-[공공데이터포털](https://www.data.go.kr)에서 **단기예보 조회서비스**를 신청한다.
-승인까지 시간이 걸리므로 가장 먼저 처리할 것.
+[기상청 API 허브](https://apihub.kma.go.kr)에서 **초단기실황·초단기예보**를 신청한다.
+
+> 공공데이터포털(`apis.data.go.kr`)과 API 허브(`apihub.kma.go.kr`)는 같은
+> `VilageFcstInfoService_2.0`을 서로 다른 게이트웨이로 제공한다. 인증 파라미터도
+> 각각 `serviceKey` / `authKey`로 다르다. 이 프로젝트는 **API 허브** 기준이며,
+> 공공데이터포털을 쓰려면 `KMA_BASE` 환경변수로 베이스 URL을 바꾸고 파라미터
+> 이름을 함께 고쳐야 한다.
 
 ```bash
-echo 'KMA_KEY=발급받은_인증키' > worker/.dev.vars
+echo 'KMA_KEY=발급받은_인증키' > worker/.dev.vars   # gitignore 처리되어 있음
+node scripts/verify-kma.mjs                        # 키와 응답 구조 확인
 ```
+
+`verify-kma.mjs`는 인증키가 살아 있는지, 응답 구조가 worker의 파서 가정과
+맞는지 확인한다. 실제 API를 아직 한 번도 호출해보지 못했으므로 **연동 전에 반드시
+한 번 돌려볼 것.**
 
 ### 2. 프록시 실행
 
@@ -78,7 +88,8 @@ npm run dev         # 개발 서버
 npm test            # 단위 테스트
 npm run typecheck   # 타입 검사
 npm run build       # 프로덕션 빌드
-node scripts/shoot.mjs   # 목 데이터 상태를 스크린샷으로 저장 (screenshots/)
+node scripts/shoot.mjs        # 목 데이터 상태를 스크린샷으로 저장 (screenshots/)
+node scripts/verify-kma.mjs   # 기상청 API 키·응답 구조 확인
 ```
 
 ## 구조

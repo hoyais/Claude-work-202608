@@ -16,12 +16,20 @@ import { toGrid } from '../../src/lib/grid.ts';
 import type { WeatherSnapshot, Sky, Precip } from '../../src/lib/types.ts';
 
 export type Env = {
-  /** 공공데이터포털 인증키. wrangler secret 으로 주입한다. */
+  /** 기상청 API 허브 인증키. wrangler secret 으로 주입한다. */
   KMA_KEY: string;
+  /** 게이트웨이를 바꿔야 할 때만 지정. 기본값은 API 허브. */
+  KMA_BASE?: string;
 };
 
-const KMA_BASE =
-  'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0';
+/**
+ * 기상청 API 허브(apihub.kma.go.kr).
+ *
+ * 같은 VilageFcstInfoService_2.0 이지만 공공데이터포털(apis.data.go.kr)과는
+ * 게이트웨이가 다르다. 인증 파라미터 이름도 serviceKey 가 아니라 authKey 다.
+ */
+const DEFAULT_BASE =
+  'https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0';
 
 /**
  * 캐시 수명 10분. 실황 관측 주기와 같다.
@@ -67,7 +75,7 @@ export default {
     if (hit) return withCors(hit);
 
     try {
-      const snapshot = await load(nx, ny, env.KMA_KEY);
+      const snapshot = await load(nx, ny, env.KMA_KEY, env.KMA_BASE ?? DEFAULT_BASE);
       const res = json(snapshot, 200, {
         'cache-control': `public, max-age=${NCST_TTL_S}`,
       });
@@ -84,10 +92,11 @@ async function load(
   nx: number,
   ny: number,
   key: string,
+  base: string,
 ): Promise<WeatherSnapshot> {
   const [ncst, fcst] = await Promise.all([
-    fetchNcst(nx, ny, key),
-    fetchSky(nx, ny, key).catch(() => null), // 하늘상태는 실패해도 진행
+    fetchNcst(nx, ny, key, base),
+    fetchSky(nx, ny, key, base).catch(() => null), // 하늘상태는 실패해도 진행
   ]);
 
   return {
@@ -110,12 +119,17 @@ type Ncst = {
   observedAt: number;
 };
 
-async function fetchNcst(nx: number, ny: number, key: string): Promise<Ncst> {
+async function fetchNcst(
+  nx: number,
+  ny: number,
+  key: string,
+  base: string,
+): Promise<Ncst> {
   // 매시각 정시 발표, 약 40분 후 제공. 아직 안 나왔으면 직전 시각을 쓴다.
   const { date, time, at } = ncstBase(new Date());
 
   const url =
-    `${KMA_BASE}/getUltraSrtNcst?serviceKey=${key}` +
+    `${base}/getUltraSrtNcst?authKey=${encodeURIComponent(key)}` +
     `&pageNo=1&numOfRows=100&dataType=JSON` +
     `&base_date=${date}&base_time=${time}&nx=${nx}&ny=${ny}`;
 
@@ -136,11 +150,16 @@ async function fetchNcst(nx: number, ny: number, key: string): Promise<Ncst> {
 }
 
 /** 초단기예보에서 가장 가까운 시각의 하늘상태(SKY)를 가져온다. */
-async function fetchSky(nx: number, ny: number, key: string): Promise<Sky> {
+async function fetchSky(
+  nx: number,
+  ny: number,
+  key: string,
+  base: string,
+): Promise<Sky> {
   const { date, time } = fcstBase(new Date());
 
   const url =
-    `${KMA_BASE}/getUltraSrtFcst?serviceKey=${key}` +
+    `${base}/getUltraSrtFcst?authKey=${encodeURIComponent(key)}` +
     `&pageNo=1&numOfRows=60&dataType=JSON` +
     `&base_date=${date}&base_time=${time}&nx=${nx}&ny=${ny}`;
 
