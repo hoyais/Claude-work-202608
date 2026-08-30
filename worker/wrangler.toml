@@ -1,0 +1,7 @@
+name = "bike-weather-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# 인증키는 코드에 두지 않는다.
+#   로컬 개발: worker/.dev.vars 에 KMA_KEY=... (gitignore 처리됨)
+#   배포:      npx wrangler secret put KMA_KEY

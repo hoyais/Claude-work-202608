@@ -1,0 +1,535 @@
+/*
+ * 자전거 날씨 — 주행용 계기판 스타일.
+ *
+ * 색은 장식이 아니라 1차 데이터 표현이다. 상태색은 data-state로,
+ * 주간/야간은 data-theme으로 전환한다. 시스템 다크 모드를 따르지 않는 이유는
+ * 디자인 가이드 08장 참고 — 야간 라이딩은 시스템 설정과 무관하게 일어난다.
+ */
+
+/* ---------- 주간 팔레트 ---------- */
+.app[data-theme='day'] {
+  --ground: #f2f4f3;
+  --ink: #101418;
+  --ink-dim: #5c6c6f;
+  --line: #dde2e0;
+  --road: #dfe5e3;
+  --river: #dfeaea;
+
+  --head: #c62b23;
+  --cross: #d68a0c;
+  --tail: #1b8a4b;
+  --neutral: #6b7a7d;
+
+  --band-fg: #ffffff;
+  --band-strip: rgba(0, 0, 0, 0.15);
+  --marker: #0f7d8c;
+
+  /* 밴드는 색면으로 꽉 채운다 */
+  --band-fill: var(--state);
+  --band-border: transparent;
+  --band-border-w: 0px;
+  --map-tint-alpha: 0.06;
+  --arrow-fg: #ffffff;
+  --arrow-halo: rgba(255, 255, 255, 0.18);
+}
+
+/* ---------- 야간 팔레트 ----------
+ * 넓은 색면은 어두운 환경에서 잔상을 남기고 야간 시력을 떨어뜨린다.
+ * 색면 대신 굵은 경계선 + 색 텍스트 + 색 화살표로 같은 정보를 전달한다. */
+.app[data-theme='night'] {
+  --ground: #12181b;
+  --ink: #e7efee;
+  --ink-dim: #84969a;
+  --line: #263134;
+  --road: #1e272b;
+  --river: #1b262a;
+
+  --head: #e8574a;
+  --cross: #e5a63c;
+  --tail: #3fbe77;
+  --neutral: #5a6a6e;
+
+  --band-fg: var(--state);
+  --band-strip: transparent;
+  --marker: #4fbfcf;
+
+  --band-fill: #0b0f12;
+  --band-border: var(--state);
+  --band-border-w: 3px;
+  --map-tint-alpha: 0;
+  --arrow-fg: var(--state);
+  --arrow-halo: transparent;
+}
+
+/* ---------- 상태색 ---------- */
+.app[data-state='headwind'] { --state: var(--head); }
+.app[data-state='crossLeft'],
+.app[data-state='crossRight'] { --state: var(--cross); }
+.app[data-state='tailwind'] { --state: var(--tail); }
+.app[data-state='unknown'] { --state: var(--neutral); }
+
+/* 풍속이 약하면 방향이 무엇이든 영향이 미미하다.
+   색으로 강한 신호를 주면 잘못된 경고가 되므로 농도를 낮춘다. */
+.app[data-intensity='weak'] { --band-alpha: 0.45; }
+.app[data-intensity='normal'] { --band-alpha: 1; }
+.app[data-intensity='strong'] { --band-alpha: 1; }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: #101418;
+  font-family: 'Barlow', 'Gothic A1', 'Apple SD Gothic Neo', 'Malgun Gothic',
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  position: relative;
+  display: grid;
+  /* 밴드는 내용 높이만큼만. 고정 비율로 잡으면 빈 색면이 남는다. */
+  grid-template-rows: auto 1fr;
+  height: 100svh;
+  background: var(--ground);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* ======================================================
+   상단 바람 밴드 — 화면에서 가장 먼저 읽히는 자리
+   ====================================================== */
+.band {
+  position: relative;
+  background: var(--band-fill);
+  color: var(--band-fg);
+  padding: max(14px, env(safe-area-inset-top)) 0 0;
+  border-bottom: var(--band-border-w) solid var(--band-border);
+  /* 경계각에서 상태가 오갈 때 화면이 깜빡이지 않도록 */
+  transition: background-color 300ms ease, border-color 300ms ease,
+    color 300ms ease;
+}
+
+.app[data-theme='day'] .band {
+  opacity: var(--band-alpha, 1);
+}
+
+.band__main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px 20px;
+}
+
+.band__dial {
+  width: 76px;
+  height: 76px;
+  flex: none;
+}
+
+.dial {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dial__ring {
+  fill: var(--arrow-halo);
+  stroke: none;
+}
+
+.app[data-theme='night'] .dial__ring {
+  fill: none;
+  stroke: var(--state);
+  stroke-width: 2;
+  opacity: 0.45;
+}
+
+/* 획이 얇으면 진동 환경에서 사라진다. 6pt 이상을 유지한다. */
+.dial__arrow line {
+  stroke: var(--arrow-fg);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.dial__arrow path {
+  fill: var(--arrow-fg);
+}
+
+.dial__arrow {
+  transform-origin: 50px 50px;
+  transition: transform 300ms ease;
+}
+
+.dial__dot {
+  fill: none;
+}
+
+.app[data-state='unknown'] .dial__arrow {
+  display: none;
+}
+
+.app[data-state='unknown'] .dial__dot {
+  fill: var(--arrow-fg);
+}
+
+.band__text {
+  min-width: 0;
+}
+
+/* 영향도 라벨 — 유일한 주인공.
+   시청 거리 60cm에서 0.5초 안에 읽히려면 캡 높이 10mm 이상이 필요하다. */
+.band__label {
+  margin: 0;
+  font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 11vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  /* 상태가 바뀔 때 글자가 좌우로 움직이지 않도록 폭을 고정 */
+  min-width: 4ch;
+}
+
+.band__speed {
+  margin: 6px 0 0;
+  font-weight: 700;
+  font-size: clamp(1.1rem, 5.5vw, 1.7rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.94;
+}
+
+.band__speed .unit {
+  font-size: 0.62em;
+  font-weight: 600;
+  margin-left: 4px;
+  opacity: 0.8;
+}
+
+.band__abs {
+  text-align: right;
+  flex: none;
+}
+
+.band__bearing {
+  margin: 0;
+  font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+  font-weight: 700;
+  font-size: clamp(0.95rem, 4.2vw, 1.3rem);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.band__caption {
+  margin: 3px 0 0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+/* ---------- 보조 정보 띠 ---------- */
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 18px;
+  background: var(--band-strip);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.app[data-theme='night'] .strip {
+  color: var(--ink-dim);
+  border-top: 1px solid var(--line);
+}
+
+.strip__weather,
+.strip__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.strip__sep {
+  opacity: 0.45;
+}
+
+.strip__dim {
+  opacity: 0.78;
+  margin-left: 2px;
+}
+
+.strip__icon {
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  flex: none;
+}
+
+.strip__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- 오래된 데이터 경고 ---------- */
+.stale {
+  padding: 5px 18px;
+  background: var(--cross);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.app[data-theme='night'] .stale {
+  background: transparent;
+  color: var(--cross);
+  border-top: 1px solid var(--cross);
+}
+
+/* ======================================================
+   하단 지도
+   ====================================================== */
+.map {
+  position: relative;
+  overflow: hidden;
+  background: var(--ground);
+}
+
+/* 상태색을 지도에도 옅게 덮어 화면 전체가 한 상태로 읽히게 한다 */
+.map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--state);
+  opacity: var(--map-tint-alpha);
+  pointer-events: none;
+  transition: background-color 300ms ease;
+}
+
+.map__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.map__sketch {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+}
+
+.sketch__river {
+  fill: none;
+  stroke: var(--river);
+  stroke-width: 26;
+}
+
+.sketch__road {
+  stroke: var(--road);
+  stroke-width: 7;
+}
+
+.sketch__road.thin {
+  stroke-width: 3;
+  opacity: 0.7;
+}
+
+.map__note {
+  position: relative;
+  margin: 0;
+  padding: 5px 11px;
+  border-radius: 20px;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  font-weight: 600;
+  transform: translateY(-40px);
+}
+
+/* 절대 풍향 화살표 오버레이 */
+.map__wind {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.map__wind line {
+  stroke: var(--state);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+
+.map__wind path {
+  fill: var(--state);
+  opacity: 0.5;
+}
+
+/* 라이더 마커 — 아래 1/3 지점에 두어 전방 시야를 확보한다 */
+.rider {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.rider svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.rider__ring {
+  fill: var(--ground);
+  stroke: var(--marker);
+  stroke-width: 3;
+}
+
+.rider__tip {
+  fill: var(--marker);
+}
+
+/* ======================================================
+   예외 상태 — 빈 화면이나 무한 로딩은 허용하지 않는다
+   ====================================================== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: var(--ground);
+  z-index: 10;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.overlay__box {
+  max-width: 320px;
+  text-align: center;
+}
+
+.overlay__icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  color: var(--ink-dim);
+}
+
+.overlay__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.overlay__title {
+  margin: 0 0 10px;
+  font-family: 'Gothic A1', 'Apple SD Gothic Neo', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.overlay__body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+/* 장갑과 진동을 고려해 일반 권장치(44pt)보다 크게 잡는다 */
+.overlay__cta {
+  margin-top: 22px;
+  min-height: 60px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 30px;
+  background: var(--marker);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.overlay__cta[hidden] {
+  display: none;
+}
+
+.overlay__cta:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* ======================================================
+   개발용 상태 전환 패널
+   ====================================================== */
+.devbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(16, 20, 24, 0.92);
+  overflow-x: auto;
+  z-index: 20;
+}
+
+.devbar[hidden] {
+  display: none;
+}
+
+.devbar button {
+  flex: none;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.devbar button[data-on='true'] {
+  background: #fff;
+  color: #101418;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
