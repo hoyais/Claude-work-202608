@@ -14,13 +14,14 @@
 | S3 | 계산 로직 + 단위 테스트 (37개) | ✅ |
 | S4 | UI (목 데이터로 검증) | ✅ |
 | S2 | 서버리스 프록시 (API 허브) | ✅ **실 API 검증 완료** (지점 실황 + 지점 예보) |
-| S1 | 지도 회전·GPS heading 스파이크 | ⏳ 실기기 필요 |
+| S1 | 지도 회전 (MapLibre) | ✅ **검증 완료** — heading-up 회전 동작 확인 |
+| S1 | GPS heading 정확도 | ⏳ 실기기 필요 |
 | S5 | PWA 셸 (manifest / SW) | ⏳ |
 | S6 | 필드 테스트 | ⏳ |
 
 바람·기온·습도·강수형태는 **지점 실황**에서, 하늘상태는 **지점 초단기예보**에서
-받아 합친다. 두 호출 모두 수 KB 수준이고 실제 응답까지 확인했다. 지도 타일은
-아직 붙이지 않았고, 현재는 목 데이터 모드로 UI가 동작한다.
+받아 합친다. 두 호출 모두 수 KB 수준이고 실제 응답까지 확인했다.
+지도는 MapLibre GL + MapTiler로 붙였고 heading-up 회전까지 검증했다.
 
 ## 어떤 API를 쓰는가
 
@@ -101,7 +102,16 @@ cd worker
 npx wrangler dev        # → http://localhost:8787
 ```
 
-### 3. 앱을 실 모드로
+### 3. 지도 키 (MapTiler)
+
+[maptiler.com](https://www.maptiler.com) 무료 계정 → **Cloud → API Keys**에서 발급한다.
+기상청 키와 달리 **브라우저에서 직접** 쓰므로 서버에 숨길 수 없다. 대신 키 설정의
+**Allowed HTTP Origins**로 도메인을 제한해 방어한다(`localhost`, 배포 후 `*.workers.dev` 등).
+
+> Origin 제한을 걸면 `Origin` 헤더가 없는 요청은 403이 된다. curl로 테스트할 땐
+> `-H "Origin: http://localhost"` 를 붙여야 한다. 브라우저는 자동으로 붙이므로 정상 동작한다.
+
+### 4. 앱을 실 모드로
 
 `.env`를 수정한다.
 
@@ -111,7 +121,7 @@ VITE_API_BASE=http://localhost:8787
 VITE_MAPTILER_KEY=발급받은_키
 ```
 
-### 4. 배포 (실기기 테스트용)
+### 5. 배포 (실기기 테스트용)
 
 ```bash
 cd worker
@@ -131,6 +141,7 @@ npm run typecheck   # 타입 검사
 npm run build       # 프로덕션 빌드
 node scripts/shoot.mjs        # 목 데이터 상태를 스크린샷으로 저장 (screenshots/)
 node scripts/verify-kma.mjs   # 기상청 API 키·응답 구조 확인
+node scripts/check-map.mjs    # 지도 렌더링·heading-up 회전 확인
 ```
 
 ## 구조
@@ -150,6 +161,7 @@ src/
   ui/
     display.ts    스냅샷 + 주행상태 → 화면값
     render.ts     DOM 렌더링
+    map.ts        heading-up 지도 (MapLibre GL)
 worker/
   src/index.ts    기상청 프록시 (CORS·인증키·캐싱)
 ```
@@ -193,3 +205,6 @@ worker/
 - **관측소 거리** — 초단기실황은 관측소 지점값이라 멀수록 오차가 커진다.
   화면에 거리를 표시하지 않기로 했으므로 사용자가 원인을 알 수 없다
 - **Wake Lock** — iOS Safari 지원 여부 미검증. 미지원이면 네이티브 전환을 앞당길 근거
+- **지도 CSS 우선순위** — MapLibre 자체 CSS(`.maplibregl-map`)가 `position: relative`를
+  주기 때문에, 컨테이너를 클래스 선택자만으로 `absolute` 처리하면 로드 순서에 따라
+  밀려서 높이가 0으로 무너진다. `#maplibre` ID 선택자로 명시해 둔 이유다.

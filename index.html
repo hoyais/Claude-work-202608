@@ -67,6 +67,9 @@
 
       <!-- 하단 지도 -->
       <section class="map" id="map">
+        <!-- MapLibre가 여기 캔버스를 그린다. 키가 없으면 비워진 채 아래 폴백이 보인다 -->
+        <div id="maplibre" class="maplibre-container"></div>
+
         <div class="map__fallback" id="map-fallback">
           <svg viewBox="0 0 200 300" class="map__sketch" aria-hidden="true">
             <path d="M-10 300 Q 60 240 92 172 T 140 40" class="sketch__river" />

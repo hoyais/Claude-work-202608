@@ -12,8 +12,18 @@ import { buildDisplay } from './ui/display.ts';
 import { WeatherFeed, fetchWeather } from './data/client.ts';
 import { initialBearing, averageAngle, type LatLon } from './lib/bearing.ts';
 import { SCENARIOS, getScenario } from './data/mock.ts';
+import { RideMap } from './ui/map.ts';
 
 const USE_MOCK = import.meta.env['VITE_USE_MOCK'] === 'true';
+const MAPTILER_KEY = import.meta.env['VITE_MAPTILER_KEY'] ?? '';
+
+/** 지도가 실제로 뜨면 CSS 스케치 폴백을 치운다. */
+function initMap(): RideMap {
+  const map = new RideMap('maplibre', MAPTILER_KEY);
+  const fallback = document.getElementById('map-fallback');
+  if (fallback) fallback.hidden = map.ready;
+  return map;
+}
 
 /** 3 km/h 미만에서는 GPS 방위가 불안정해 판정을 보류한다. */
 const MOVING_THRESHOLD_MS = 3 / 3.6;
@@ -24,6 +34,7 @@ const HEADING_WINDOW = 5;
 // ---------------------------------------------------------------- 목 모드
 
 function runMock(): void {
+  const map = initMap();
   const bar = document.getElementById('devbar')!;
   bar.hidden = false;
 
@@ -39,6 +50,7 @@ function runMock(): void {
       kind: 'ready',
       display: buildDisplay(s.weather, s.ride, { theme }),
     });
+    map.update(s.ride.position.lat, s.ride.position.lon, s.ride.heading);
 
     bar.querySelectorAll('button').forEach((b) => {
       b.dataset['on'] = String(b.dataset['id'] === currentId);
@@ -65,11 +77,20 @@ function runMock(): void {
     currentId = id;
     paint();
   };
+
+  // S1 스파이크 검증용: 지도 회전이 실제로 되는지 임의 heading으로 확인
+  (window as unknown as Record<string, unknown>)['__setHeading'] = (
+    deg: number,
+  ) => {
+    const s = getScenario(currentId);
+    map.update(s.ride.position.lat, s.ride.position.lon, deg);
+  };
 }
 
 // ---------------------------------------------------------------- 실 모드
 
 function runLive(): void {
+  const map = initMap();
   const feed = new WeatherFeed(fetchWeather);
   const headings: number[] = [];
   let lastPos: LatLon | null = null;
@@ -114,6 +135,8 @@ function runLive(): void {
         heading: lastHeading,
         isMoving,
       };
+
+      map.update(pos.lat, pos.lon, lastHeading);
 
       const weather = await feed.update(pos);
       if (!weather) {

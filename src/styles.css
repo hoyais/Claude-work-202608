@@ -324,11 +324,35 @@ body {
   transition: background-color 300ms ease;
 }
 
+/*
+ * ID 선택자로 명시한다. MapLibre 자체 CSS(.maplibregl-map)가
+ * position: relative 를 주는데, 클래스 선택자만으로는 로드 순서에 따라
+ * 우리 규칙이 밀릴 수 있다 — 실제로 그래서 컨테이너가 0 높이로 무너졌었다.
+ */
+#maplibre.maplibre-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* MapLibre 로고·저작권 표기는 밝은 배경을 가정하므로 야간엔 톤을 낮춘다 */
+.app[data-theme='night'] .maplibregl-ctrl-attrib {
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--ink-dim);
+}
+
 .map__fallback {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
+  /* 실제 지도가 뜨면 이 스케치는 뒤로 숨는다 (main.ts 에서 hidden 처리) */
+}
+
+/* display:grid 를 직접 선언했으므로 hidden 속성의 기본 동작이 밀린다 — 명시로 되살린다 */
+.map__fallback[hidden] {
+  display: none;
 }
 
 .map__sketch {
