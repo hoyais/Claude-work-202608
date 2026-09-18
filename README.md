@@ -208,3 +208,29 @@ worker/
 - **지도 CSS 우선순위** — MapLibre 자체 CSS(`.maplibregl-map`)가 `position: relative`를
   주기 때문에, 컨테이너를 클래스 선택자만으로 `absolute` 처리하면 로드 순서에 따라
   밀려서 높이가 0으로 무너진다. `#maplibre` ID 선택자로 명시해 둔 이유다.
+
+## 다음 세션에서 이어갈 것
+
+로컬(`npm run dev`)에서 목 데이터로 화면 확인까지 끝난 상태. 다음은:
+
+1. **폰에서 실제 GPS로 heading-up 회전 테스트**
+   - 터널링 필요 (Geolocation은 HTTPS 필수, LAN IP의 `http://`로는 위치 권한이 막힌다)
+   - 준비 없이 바로: `cloudflared tunnel --url http://localhost:5173`
+     (`brew install cloudflared` 또는 Windows는 winget/공식 릴리스, 계정 가입 불필요)
+   - `npm run dev`를 한 터미널에 띄워두고, 다른 터미널에서 위 명령 실행 →
+     `https://xxxx.trycloudflare.com` 이 뜨면 폰 브라우저로 열기
+   - 실 GPS 테스트를 하려면 `.env`의 `VITE_USE_MOCK=false`로 전환 필요 (지금은 목 모드)
+   - 같은 와이파이로만 화면만 보고 싶을 땐 `npm run dev -- --host` 후
+     `http://<PC의-사설IP>:5173` (GPS는 이 방식으론 안 됨, 레이아웃 확인용)
+
+2. **안드로이드 앱 전환 (Capacitor)**
+   - 지금 코드를 다시 짜지 않고 그대로 네이티브 셸에 감싸는 방향으로 합의됨
+   - `npm i @capacitor/core @capacitor/cli` → `npx cap add android`
+   - 이 시점부터 **사용자 로컬에 Android Studio(SDK·에뮬레이터) 필요** —
+     이 클라우드 환경은 SDK 설치·에뮬레이터 구동이 안 됨
+   - Claude가 준비할 수 있는 것: Capacitor 설정 파일, Geolocation을
+     `@capacitor/geolocation` 플러그인으로 교체, Wake Lock 네이티브 플러그인 교체
+   - 실제 빌드·에뮬레이터/실기기 확인은 사용자가 로컬에서 진행
+
+브랜치는 `claude/weather-wind-mobile-app-yqrskc`, 최신 커밋까지 전부 푸시됨.
+다음 세션은 "1번 터널 테스트 결과"부터 물어보고 시작할 것.
